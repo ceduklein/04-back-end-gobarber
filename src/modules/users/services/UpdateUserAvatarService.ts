@@ -4,6 +4,7 @@ import fs from 'fs';
 import uploadConfig from '@config/upload';
 import AppError from '@shared/errors/AppError';
 import { injectable, inject } from 'tsyringe';
+import IStorageProvider from '@shared/container/providers/StorageProvider/models/IStorageProvider';
 import User from '../infra/typeorm/entities/User';
 import IUsersRepository from '../repositories/IUsersRepository';
 
@@ -17,6 +18,9 @@ class UpdateUserAvatarService {
   constructor(
     @inject('UsersRepository')
     private usersRepository: IUsersRepository,
+
+    @inject('StorageProvider')
+    private storageProvider: IStorageProvider,
   ) {}
 
   public async execute({ user_id, avatarFilename }: IRequest): Promise<User> {
@@ -27,18 +31,13 @@ class UpdateUserAvatarService {
     }
 
     if (user.avatar) {
-      // Verifica se usuário já tem avatar salvo
-      const userAvatarFilePath = path.join(uploadConfig.directory, user.avatar);
-      // Verifica se o arquivo já existe
-      const userAvatarFileExists = await fs.promises.stat(userAvatarFilePath);
-      // Se o arquivo esiste, deleta ele com a função unlink();
-      if (userAvatarFileExists) {
-        await fs.promises.unlink(userAvatarFilePath);
-      }
+      await this.storageProvider.deleteFile(user.avatar);
     }
-    // Depois de deletar o arquivo, define novo caminho para campo avatar
-    user.avatar = avatarFilename;
-    // Salva a informação no banco de dados.
+
+    const fileName = await this.storageProvider.saveFile(avatarFilename);
+
+    user.avatar = fileName;
+
     await this.usersRepository.save(user);
 
     return user;

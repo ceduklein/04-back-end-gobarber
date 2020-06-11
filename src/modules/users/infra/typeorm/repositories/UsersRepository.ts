@@ -1,11 +1,9 @@
-import { getRepository, Repository } from 'typeorm';
+import { getRepository, Repository, Not } from 'typeorm';
 
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import ICreateUserDTO from '@modules/users/dtos/ICreateUserDTO';
+import IFindAllProvidersDTO from '@modules/users/dtos/IFindAllProvidersDTO';
 import User from '../entities/User';
-
-// Data transfer object. Inteface criada para passar um objeto como parametro
-// na função create()
 
 class UsersRepository implements IUsersRepository {
   private ormRepository: Repository<User>;
@@ -15,7 +13,7 @@ class UsersRepository implements IUsersRepository {
   }
 
   public async findById(id: string): Promise<User | undefined> {
-    const user = await this.ormRepository.findOne(id);
+    const user = await this.ormRepository.findOne({ where: { id } });
 
     return user;
   }
@@ -26,12 +24,29 @@ class UsersRepository implements IUsersRepository {
     return user;
   }
 
-  public async create(UserData: ICreateUserDTO): Promise<User> {
-    const appointment = this.ormRepository.create(UserData);
+  public async findAllProviders({
+    except_user_id,
+  }: IFindAllProvidersDTO): Promise<User[]> {
+    let users: User[];
 
-    await this.ormRepository.save(appointment);
+    if (except_user_id) {
+      users = await this.ormRepository.find({
+        where: {
+          id: Not(except_user_id),
+        },
+      });
+    } else {
+      users = await this.ormRepository.find();
+    }
+    return users;
+  }
 
-    return appointment;
+  public async create(userData: ICreateUserDTO): Promise<User> {
+    const user = this.ormRepository.create(userData);
+
+    await this.ormRepository.save(user);
+
+    return user;
   }
 
   public async save(user: User): Promise<User> {
